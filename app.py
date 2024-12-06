@@ -3,29 +3,30 @@ import chainlit as cl
 import openai
 import os
 
-# api_key = os.getenv("OPENAI_API_KEY")
+from langsmith import traceable
+from langsmith.wrappers import wrap_openai
 
-api_key = os.getenv("RUNPOD_API_KEY")
-runpod_serverless_id = os.getenv("RUNPOD_SERVERLESS_ID")
-
-# endpoint_url = "https://api.openai.com/v1"
-endpoint_url = f"https://api.runpod.ai/v2/{runpod_serverless_id}/openai/v1"
-
-client = openai.AsyncClient(api_key=api_key, base_url=endpoint_url)
-
+api_key = os.getenv("OPENAI_API_KEY")
+endpoint_url = "https://api.openai.com/v1"
 # https://platform.openai.com/docs/models/gpt-4o
-# model_kwargs = {
-#     "model": "chatgpt-4o-latest",
-#     "temperature": 1.2,
-#     "max_tokens": 500
-# }
-
 model_kwargs = {
-    "model": "mistralai/Mistral-7B-Instruct-v0.3",
-    "temperature": 0.3,
+    "model": "chatgpt-4o-latest",
+    "temperature": 1.2,
     "max_tokens": 500
 }
 
+# api_key = os.getenv("RUNPOD_API_KEY")
+# endpoint_url = f"https://api.runpod.ai/v2/{runpod_serverless_id}/openai/v1"
+# runpod_serverless_id = os.getenv("RUNPOD_SERVERLESS_ID")
+# model_kwargs = {
+#     "model": "mistralai/Mistral-7B-Instruct-v0.3",
+#     "temperature": 0.3,
+#     "max_tokens": 500
+# }
+
+client = wrap_openai(openai.AsyncClient(api_key=api_key, base_url=endpoint_url))
+
+@traceable
 @cl.on_message
 async def on_message(message: cl.Message):
     # Maintain an array of messages in the user session
