@@ -47,7 +47,7 @@ def correctness_evaluator(run, example) -> dict:
         Dictionary with score (0-1) and explanation
     """
     # Extract the original LeetCode problem from inputs
-    leetcode_problem = run.inputs["inputs"]["messages"][-1]["content"]
+    email = run.inputs["inputs"]["messages"][-1]["content"]
     
     # Extract the model's generated tests
     generated_tests = run.outputs["message"]["content"]
@@ -55,23 +55,29 @@ def correctness_evaluator(run, example) -> dict:
     # Rest of the evaluation logic remains the same
     evaluation_prompt = f"""
     Given this email:
-    {leetcode_problem}
+    {email}
 
     Evaluate this response for correctly determining the urgency of the response required
     {generated_tests}
     
-    Score from 0-4:
-    2 = The answer is of the correct format and matches the urgency required of the email.
-    1 = The answer is of the correct format, but does not make sense given the context of the email
-    0 = The answer is not one of the strings "one hour", "four hours", "one day", or "two days"
+    Evaluate the response for its accuracy in determining the urgency required for a reply. Use the following criteria to score the response:
+	1.	Correct Format: The response must be one of the strings: "one hour", "four hours", "one day", or "two days". The strings may or may not be quoted.
+	2.	Contextual Match: The response should align with the urgency implied by the email’s content.
 
-    Return only the number (0-2).
-    """
+    Score the response as follows:
+	4: The response is in the correct format and perfectly matches the urgency required by the email.
+	3: The response is in the correct format and matches the urgency but misses slight nuances.
+	2: The response is in the correct format but does not match the urgency of the email.
+	1: The response is in the correct format but is entirely illogical for the email’s context.
+	0: The response is not in one of the accepted formats (“one hour”, “four hours”, “one day”, or “two days”, with the quotes being optional).
+
+    Return only the score as a number (0-4).
+"""
     
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": "You are a test evaluation assistant. Respond only with a number 0-2."},
+            {"role": "system", "content": "You are a test evaluation assistant. Respond only with a number 0-4."},
             {"role": "user", "content": evaluation_prompt}
         ],
         temperature=0
@@ -81,8 +87,8 @@ def correctness_evaluator(run, example) -> dict:
         score = int(response.choices[0].message.content.strip())
         return {
             "key": "correctness score",
-            "score": score / 2,  # Normalize to 0-1
-            "explanation": f"Test correctness score: {score}/2"
+            "score": score / 4,  # Normalize to 0-1
+            "explanation": f"Test correctness score: {score}/4"
         }
     except ValueError:
         return {
