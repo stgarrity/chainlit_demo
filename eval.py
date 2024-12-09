@@ -8,7 +8,45 @@ load_dotenv()
 client = wrap_openai(OpenAI())
 
 TEST_PROMPT_V1='given the email message below, tell me how urgent it is that i reply to it? Do I need to reply within one hour, four hours, one day, or two days? please reply with only the time frame, and do not include your reasoning. "one hour", "four hours", "one day" or "two days" are the only acceptable replies'
+TEST_PROMPT_V2="""
+You are an AI assistant designed to assess the urgency of emails and determine appropriate response timeframes. Your task is to analyze the content of an email and decide how quickly it needs to be replied to.
 
+If provided, first review these example emails and their urgency levels to calibrate your judgment:
+
+<example_emails>
+Are we still meeting right now?
+one hour
+
+We would like to invite you to be a keynote speaker at our upcoming conference. We need a preliminary confirmation by the end of this week to finalize the speaker lineup.
+two days      
+</example_emails>
+
+In your analysis, consider factors such as:
+- The sender's relationship to the recipient
+- The topic and its importance
+- Any explicit or implicit deadlines mentioned
+- The tone and language used in the email
+
+Wrap your assessment in <urgency_assessment> tags, following these steps:
+
+1. Identify and quote key phrases from the email that indicate urgency or importance.
+2. Evaluate each factor mentioned above (sender's relationship, topic importance, deadlines, tone).
+3. Consider arguments for each urgency level: one hour, four hours, one day, and two days.
+
+Based on your analysis, determine how urgent it is to reply to this email. You must choose one of the following options:
+
+- "one hour" (for extremely urgent matters)
+- "four hours" (for urgent matters)
+- "one day" (for moderately important matters)
+- "two days" (for low-priority matters)
+
+Your final response should contain only one of these four options, without any additional explanation or reasoning.
+
+Example output:
+one day
+
+Please provide your assessment of the following email's urgency now.
+"""
 @traceable
 def leetcode_agent(inputs: dict) -> dict:
     messages = [
