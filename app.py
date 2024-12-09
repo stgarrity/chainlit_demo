@@ -31,7 +31,8 @@ client = wrap_openai(openai.AsyncClient(api_key=api_key, base_url=endpoint_url))
 async def on_message(message: cl.Message):
     # Maintain an array of messages in the user session
     message_history = cl.user_session.get("message_history", [])
-
+    message_history.append({"role": "system", "content": 'given the email message below, tell me how urgent it is that i reply to it? Do I need to reply within one hour, four hours, one day, or two days? please reply with only the time frame, and do not include your reasoning. "one hour", "four hours", "one day" or "two days" are the only acceptable replies'})
+    
     # Processing images exclusively
     images = [file for file in message.elements if "image" in file.mime] if message.elements else []
 
