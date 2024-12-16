@@ -1,10 +1,15 @@
 import base64
+import copy
 import chainlit as cl
 import openai
 import os
 
 from langsmith import traceable
 from langsmith.wrappers import wrap_openai
+from llama_index.core import VectorStoreIndex, StorageContext
+from llama_index.vector_stores.weaviate import WeaviateVectorStore
+import weaviate
+from weaviate.classes.init import Auth
 
 api_key = os.getenv("OPENAI_API_KEY")
 endpoint_url = "https://api.openai.com/v1"
@@ -14,6 +19,32 @@ model_kwargs = {
     "temperature": 0.2,
     "max_tokens": 500
 }
+
+wcd_url = os.environ["WCD_URL"]
+wcd_api_key = os.environ["WCD_API_KEY"]
+
+weaviate_client = weaviate.connect_to_weaviate_cloud(
+    cluster_url=wcd_url,                                    
+    auth_credentials=Auth.api_key(wcd_api_key),
+)
+
+# FIXME - why didn't my index load from jupyter work?
+# from llama_index.core import SimpleDirectoryReader
+# from llama_index.core.node_parser import SimpleNodeParser
+# docs = SimpleDirectoryReader('./data').load_data()
+# parser = SimpleNodeParser()
+# vector_store = WeaviateVectorStore(weaviate_client = weaviate_client, index_name="Tesla")
+# nodes = parser.get_nodes_from_documents(docs)
+# storage_context = StorageContext.from_defaults(vector_store = vector_store)
+# index = VectorStoreIndex(nodes, storage_context = storage_context)
+# query_engine = index.as_query_engine()
+# response = query_engine.query("reasons that my tesla's velocity is lower than usual")
+# print(response)
+
+vector_store = WeaviateVectorStore(weaviate_client=weaviate_client, index_name="Tesla")
+index = VectorStoreIndex.from_vector_store(vector_store)
+query_engine = index.as_query_engine()
+retriever = index.as_retriever()
 
 # api_key = os.getenv("RUNPOD_API_KEY")
 # endpoint_url = f"https://api.runpod.ai/v2/{runpod_serverless_id}/openai/v1"
@@ -31,7 +62,6 @@ client = wrap_openai(openai.AsyncClient(api_key=api_key, base_url=endpoint_url))
 async def on_message(message: cl.Message):
     # Maintain an array of messages in the user session
     message_history = cl.user_session.get("message_history", [])
-    message_history.append({"role": "system", "content": 'given the email message below, tell me how urgent it is that i reply to it? Do I need to reply within one hour, four hours, one day, or two days? please reply with only the time frame, and do not include your reasoning. "one hour", "four hours", "one day" or "two days" are the only acceptable replies'})
     
     # Processing images exclusively
     images = [file for file in message.elements if "image" in file.mime] if message.elements else []
@@ -60,10 +90,24 @@ async def on_message(message: cl.Message):
 
     response_message = cl.Message(content="")
     await response_message.send()
+
+    rag_history = copy.deepcopy(message_history)
+    rag_history.append({"role": "system", "content": "Your only job is to identify if you need extra information from the Tesla Cyber Truck's Owners Manual to answer the last message in this thread. Respond with only one word, yes or no."})
     
+    rag = await client.chat.completions.create(messages=rag_history, **model_kwargs)
+    if rag.choices[0].message.content.lower() == "yes":
+        print("retrieving data")
+        chunks = retriever.retrieve(message.content)
+        
+        context = ""
+        for chunk in chunks:
+            context += chunk.text
+
+        message_history[len(message_history)-1]["content"] += context
+
     # Pass in the full message history for each request
     stream = await client.chat.completions.create(messages=message_history, 
-                                                  stream=True, **model_kwargs)
+                                                stream=True, **model_kwargs)
     async for part in stream:
         if token := part.choices[0].delta.content or "":
             await response_message.stream_token(token)
