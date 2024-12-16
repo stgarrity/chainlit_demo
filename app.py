@@ -11,7 +11,7 @@ endpoint_url = "https://api.openai.com/v1"
 # https://platform.openai.com/docs/models/gpt-4o
 model_kwargs = {
     "model": "chatgpt-4o-latest",
-    "temperature": 1.2,
+    "temperature": 0.2,
     "max_tokens": 500
 }
 
